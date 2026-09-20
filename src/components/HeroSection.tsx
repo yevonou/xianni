@@ -11,6 +11,50 @@ interface HeroSectionProps {
   onOpenContact: () => void;
 }
 
+interface HeroTextScene {
+  title: string;
+  copy: string;
+  titleStart: number;
+  copyStart: number;
+  exitStart: number;
+  align: 'left' | 'right';
+  positionClassName: string;
+}
+
+const HERO_TEXT_SCENES: HeroTextScene[] = [
+  {
+    title: 'REAL TESTING',
+    copy: 'Hands-on AI product reviews built from real use, not launch-day noise.',
+    titleStart: 3,
+    copyStart: 4,
+    exitStart: 5,
+    align: 'left',
+    positionClassName: 'left-[5%] top-[20%] md:left-[6%] md:top-[22%]',
+  },
+  {
+    title: 'REPEATABLE WORKFLOW',
+    copy: 'Tutorials that turn AI tools into clear, testable steps creators can actually follow.',
+    titleStart: 6,
+    copyStart: 7,
+    exitStart: 9,
+    align: 'right',
+    positionClassName: 'right-[5%] top-[26%] md:right-[6%] md:top-[28%]',
+  },
+  {
+    title: 'SIGNAL OVER NOISE',
+    copy: 'Field notes on models, agents, AI search, video generation, and the future of creative work.',
+    titleStart: 15,
+    copyStart: 17,
+    exitStart: 19,
+    align: 'left',
+    positionClassName: 'left-[5%] bottom-[17%] md:left-[6%] md:bottom-[19%]',
+  },
+];
+
+const clamp01 = (value: number) => Math.min(1, Math.max(0, value));
+const easeOutCubic = (value: number) => 1 - (1 - value) ** 3;
+const easeInCubic = (value: number) => value ** 3;
+
 export const HeroSection: React.FC<HeroSectionProps> = ({ onOpenContact }) => {
   const containerRef = useRef<HTMLDivElement>(null);
   const heroContentRef = useRef<HTMLDivElement>(null);
@@ -22,11 +66,60 @@ export const HeroSection: React.FC<HeroSectionProps> = ({ onOpenContact }) => {
   const studioFeedRef = useRef<HTMLDivElement>(null);
   const accentLineRef = useRef<HTMLDivElement>(null);
   const accentDotRef = useRef<HTMLSpanElement>(null);
+  const textSceneRefs = useRef<Array<HTMLDivElement | null>>([]);
+  const textTitleRefs = useRef<Array<HTMLHeadingElement | null>>([]);
+  const textCopyRefs = useRef<Array<HTMLParagraphElement | null>>([]);
+  const videoTimeTargetRef = useRef(0);
+  const videoTimeFrameRef = useRef<number | null>(null);
 
   const [activeFrameIndex, setActiveFrameIndex] = useState(0);
   const [videoError, setVideoError] = useState(false);
   const [isReducedMotion, setIsReducedMotion] = useState(false);
   const [isVideoReady, setIsVideoReady] = useState(false);
+
+  // Keep all copy animation on the same clock as video.currentTime. This is
+  // called from ScrollTrigger's scrub update, so text never creates another
+  // animation timeline or pauses the video.
+  const updateTextOverlays = useCallback((currentTime: number) => {
+    HERO_TEXT_SCENES.forEach((scene, index) => {
+      const sceneElement = textSceneRefs.current[index];
+      const titleElement = textTitleRefs.current[index];
+      const copyElement = textCopyRefs.current[index];
+      if (!sceneElement || !titleElement || !copyElement) return;
+
+      const titleIn = easeOutCubic(clamp01((currentTime - scene.titleStart) / 0.55));
+      const copyIn = easeOutCubic(clamp01((currentTime - scene.copyStart) / 0.65));
+      const leave = easeInCubic(clamp01((currentTime - scene.exitStart) / 0.45));
+
+      const titleOpacity = titleIn * (1 - leave);
+      const copyOpacity = copyIn * (1 - leave);
+      const titleY = (1 - titleIn) * 14 - leave * 10;
+      const copyY = (1 - copyIn) * 10 - leave * 8;
+      const copyLength = Math.round(scene.copy.length * copyIn);
+
+      sceneElement.style.opacity = String(Math.max(titleOpacity, copyOpacity));
+      titleElement.style.opacity = String(titleOpacity);
+      titleElement.style.transform = `translate3d(0, ${titleY}px, 0)`;
+      copyElement.style.opacity = String(copyOpacity);
+      copyElement.style.transform = `translate3d(0, ${copyY}px, 0)`;
+      copyElement.textContent = scene.copy.slice(0, copyLength);
+    });
+  }, []);
+
+  // Coalesce wheel bursts into one seek per paint. This keeps the browser from
+  // queueing several expensive video seeks when a mouse wheel emits 3–5 lines
+  // at once, while the numeric scrub below eases toward the new scroll target.
+  const queueVideoTime = useCallback((video: HTMLVideoElement, currentTime: number) => {
+    videoTimeTargetRef.current = currentTime;
+    if (videoTimeFrameRef.current !== null) return;
+
+    videoTimeFrameRef.current = window.requestAnimationFrame(() => {
+      videoTimeFrameRef.current = null;
+      if (isFinite(videoTimeTargetRef.current)) {
+        video.currentTime = videoTimeTargetRef.current;
+      }
+    });
+  }, []);
 
   // Initialize GSAP ScrollTrigger after video metadata or fallback is ready
   const initScrollTrigger = useCallback(() => {
@@ -42,7 +135,7 @@ export const HeroSection: React.FC<HeroSectionProps> = ({ onOpenContact }) => {
     if (!container) return;
 
     const ctx = gsap.context(() => {
-      // Pin distance: allow smooth scroll scrub through video duration
+      // Keep the hero pinned for the full scroll-driven video sequence.
       const pinDistance = '+=240%';
 
       // 1. Video frame-by-frame scrub animation
@@ -50,6 +143,8 @@ export const HeroSection: React.FC<HeroSectionProps> = ({ onOpenContact }) => {
         // Ensure video is paused, muted, and at start frame
         video.pause();
         video.currentTime = 0;
+        videoTimeTargetRef.current = 0;
+        updateTextOverlays(0);
 
         // Virtual object to animate currentTime with GSAP scrub
         const videoObj = { currentTime: 0 };
@@ -61,10 +156,11 @@ export const HeroSection: React.FC<HeroSectionProps> = ({ onOpenContact }) => {
             trigger: container,
             start: 'top top',
             end: pinDistance,
-            scrub: true,
+            scrub: 1,
             onUpdate: () => {
               if (video && isFinite(videoObj.currentTime)) {
-                video.currentTime = videoObj.currentTime;
+                queueVideoTime(video, videoObj.currentTime);
+                updateTextOverlays(videoObj.currentTime);
               }
             },
           },
@@ -78,7 +174,7 @@ export const HeroSection: React.FC<HeroSectionProps> = ({ onOpenContact }) => {
           start: 'top top',
           end: pinDistance,
           pin: true,
-          scrub: true,
+          scrub: 1,
           anticipatePin: 1,
           invalidateOnRefresh: true,
         },
@@ -132,12 +228,25 @@ export const HeroSection: React.FC<HeroSectionProps> = ({ onOpenContact }) => {
         );
       }
 
-      // Smooth slide-away transition near the end of the pin
+      // Use the final two seconds of the 20-second source (18s -> 20s) as
+      // the Hero exit. The video travels down into the white transition area
+      // and holds its final position until the pinned sequence releases.
+      // This timeline shares the same ScrollTrigger progress that drives
+      // video.currentTime, so there is still only one animation clock.
       tl.to(
-        heroContentRef.current,
-        { yPercent: -100, ease: 'none', duration: 0.2 },
-        0.8
+        mediaShellRef.current,
+        {
+          // Center the reduced video inside the dedicated white exit area.
+          // The 110px offset is half of the 220px section extension below
+          // the viewport-sized Hero content.
+          y: () => window.innerHeight * 0.5 + 110,
+          scale: 0.36,
+          ease: 'none',
+          duration: 0.1,
+        },
+        0.9
       );
+
     }, containerRef);
 
     // Resize event listener to refresh ScrollTrigger
@@ -149,9 +258,14 @@ export const HeroSection: React.FC<HeroSectionProps> = ({ onOpenContact }) => {
 
     return () => {
       window.removeEventListener('resize', handleResize);
+      if (videoTimeFrameRef.current !== null) {
+        window.cancelAnimationFrame(videoTimeFrameRef.current);
+        videoTimeFrameRef.current = null;
+      }
       ctx.revert();
+      updateTextOverlays(0);
     };
-  }, []);
+  }, [queueVideoTime, updateTextOverlays]);
 
   useEffect(() => {
     const prefersReducedMotion = window.matchMedia('(prefers-reduced-motion: reduce)').matches;
@@ -192,11 +306,11 @@ export const HeroSection: React.FC<HeroSectionProps> = ({ onOpenContact }) => {
     <section
       ref={containerRef}
       id="hero-section"
-      className="relative w-full h-screen min-h-[620px] sm:min-h-[640px] md:min-h-[720px] bg-[#FFFFFF] overflow-hidden select-none"
+      className="relative w-full h-[calc(100vh+220px)] min-h-[840px] sm:min-h-[860px] md:min-h-[940px] bg-[#FFFFFF] overflow-visible select-none"
     >
       <div
         ref={heroContentRef}
-        className="relative w-full h-full flex flex-col justify-between overflow-hidden bg-[#FFFFFF]"
+        className="relative w-full h-screen flex flex-col justify-between overflow-visible bg-[#FFFFFF]"
       >
         {/* Top Navbar */}
         <Navbar onOpenContact={onOpenContact} id="hero-navbar" />
@@ -269,6 +383,44 @@ export const HeroSection: React.FC<HeroSectionProps> = ({ onOpenContact }) => {
                 }`}
               />
             )}
+
+            {/* Scroll-synchronised editorial copy. The overlay stays inside the
+                16:9 shell so it occupies the video's negative space without
+                adding a mask, tint, or extra visual treatment. */}
+            <div className="absolute inset-0 z-[15] pointer-events-none">
+              {HERO_TEXT_SCENES.map((scene, index) => (
+                <div
+                  key={scene.title}
+                  ref={(element) => {
+                    textSceneRefs.current[index] = element;
+                  }}
+                  className={`absolute max-w-[44%] sm:max-w-[38%] md:max-w-[32%] ${scene.positionClassName} ${
+                    scene.align === 'right' ? 'text-right' : 'text-left'
+                  }`}
+                  style={{ opacity: 0 }}
+                >
+                  <h2
+                    ref={(element) => {
+                      textTitleRefs.current[index] = element;
+                    }}
+                    className="text-[clamp(0.95rem,2.8vw,3.2rem)] font-semibold leading-[0.95] tracking-[0.08em] text-[#0C0C0C] will-change-transform"
+                    style={{ opacity: 0, transform: 'translate3d(0, 14px, 0)' }}
+                  >
+                    {scene.title}
+                  </h2>
+                  <p
+                    ref={(element) => {
+                      textCopyRefs.current[index] = element;
+                    }}
+                    aria-label={scene.copy}
+                    className="mt-2 text-[clamp(0.58rem,1.1vw,1rem)] font-light leading-snug tracking-[0.02em] text-[#0C0C0C]/75 will-change-transform sm:mt-3"
+                    style={{ opacity: 0, transform: 'translate3d(0, 10px, 0)' }}
+                  >
+                    {scene.copy}
+                  </p>
+                </div>
+              ))}
+            </div>
           </div>
         </div>
 

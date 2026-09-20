@@ -2,9 +2,9 @@ import { ProjectData, ResumeAchievement } from '../types';
 
 /**
  * Primary hero video path.
- * Uploaded video 1.mp4 used for GSAP ScrollTrigger scroll-driven playback.
+ * Uploaded 3.MP4 used for GSAP ScrollTrigger scroll-driven playback.
  */
-export const HERO_VIDEO_SRC = '/1.mp4';
+export const HERO_VIDEO_SRC = '/3.MP4';
 export const HERO_POSTER_SRC = '/assets/hero/poster.jpg';
 
 /**
