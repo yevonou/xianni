@@ -5,6 +5,7 @@ import { ProjectData, ResumeAchievement } from '../types';
  * Short-GOP 4.mp4 used for GSAP ScrollTrigger scroll-driven playback.
  */
 export const HERO_VIDEO_SRC = '/4.mp4';
+export const HERO_LANDING_VIDEO_SRC = '/5.mp4';
 export const HERO_POSTER_SRC = '/assets/hero/poster.jpg';
 
 /**

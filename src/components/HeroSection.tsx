@@ -3,7 +3,12 @@ import gsap from 'gsap';
 import { ScrollTrigger } from 'gsap/ScrollTrigger';
 import { Navbar } from './Navbar';
 import { ContactButton } from './ContactButton';
-import { HERO_VIDEO_SRC, HERO_POSTER_SRC, HERO_POSTER_FRAMES } from '../constants/assets';
+import {
+  HERO_VIDEO_SRC,
+  HERO_LANDING_VIDEO_SRC,
+  HERO_POSTER_SRC,
+  HERO_POSTER_FRAMES,
+} from '../constants/assets';
 
 gsap.registerPlugin(ScrollTrigger);
 
@@ -62,6 +67,7 @@ export const HeroSection: React.FC<HeroSectionProps> = ({ onOpenContact }) => {
   const heroContentRef = useRef<HTMLDivElement>(null);
   const mediaShellRef = useRef<HTMLDivElement>(null);
   const videoRef = useRef<HTMLVideoElement>(null);
+  const landingVideoRef = useRef<HTMLVideoElement>(null);
   const headingRef = useRef<HTMLHeadingElement>(null);
   const landingAreaRef = useRef<HTMLDivElement>(null);
   const landingTextRef = useRef<HTMLDivElement>(null);
@@ -121,6 +127,7 @@ export const HeroSection: React.FC<HeroSectionProps> = ({ onOpenContact }) => {
     }
 
     const video = videoRef.current;
+    const landingVideo = landingVideoRef.current;
     const container = containerRef.current;
     if (!container) return;
 
@@ -141,6 +148,34 @@ export const HeroSection: React.FC<HeroSectionProps> = ({ onOpenContact }) => {
           anticipatePin: 1,
           invalidateOnRefresh: true,
         },
+      });
+
+      let isLandingVideoActive = false;
+      const setLandingVideoActive = (isActive: boolean) => {
+        if (!landingVideo || isLandingVideoActive === isActive) return;
+        isLandingVideoActive = isActive;
+
+        if (isActive) {
+          landingVideo.currentTime = 0;
+          landingVideo.style.opacity = '1';
+          void landingVideo.play().catch(() => {
+            // Muted inline playback is normally permitted. If the browser
+            // still blocks it, keep the final frame of 4.mp4 visible.
+            landingVideo.style.opacity = '0';
+            isLandingVideoActive = false;
+          });
+          return;
+        }
+
+        landingVideo.style.opacity = '0';
+        landingVideo.pause();
+        landingVideo.currentTime = 0;
+      };
+
+      tl.eventCallback('onUpdate', () => {
+        // Both the 4.mp4 scrub and the landing motion finish at timeline time
+        // 0.9. Use absolute time because the timeline itself also ends there.
+        setLandingVideoActive(tl.time() >= 0.899);
       });
 
       if (video && video.duration > 0) {
@@ -301,6 +336,11 @@ export const HeroSection: React.FC<HeroSectionProps> = ({ onOpenContact }) => {
 
     return () => {
       window.removeEventListener('resize', handleResize);
+      if (landingVideo) {
+        landingVideo.style.opacity = '0';
+        landingVideo.pause();
+        landingVideo.currentTime = 0;
+      }
       landingTrigger?.kill();
       landingTimeline?.kill();
       ctx.revert();
@@ -410,19 +450,32 @@ export const HeroSection: React.FC<HeroSectionProps> = ({ onOpenContact }) => {
 
             {/* Video layer: scroll-driven frame scrubbing via video.currentTime */}
             {!videoError && !isReducedMotion && (
-              <video
-                ref={videoRef}
-                id="hero-creator-video"
-                src={HERO_VIDEO_SRC}
-                poster={HERO_POSTER_SRC}
-                muted
-                playsInline
-                preload="auto"
-                onError={() => setVideoError(true)}
-                className={`absolute inset-0 w-full h-full object-contain object-center transition-opacity duration-300 ${
-                  isVideoReady ? 'opacity-100' : 'opacity-0'
-                }`}
-              />
+              <>
+                <video
+                  ref={videoRef}
+                  id="hero-creator-video"
+                  src={HERO_VIDEO_SRC}
+                  poster={HERO_POSTER_SRC}
+                  muted
+                  playsInline
+                  preload="auto"
+                  onError={() => setVideoError(true)}
+                  className={`absolute inset-0 w-full h-full object-contain object-center transition-opacity duration-300 ${
+                    isVideoReady ? 'opacity-100' : 'opacity-0'
+                  }`}
+                />
+                <video
+                  ref={landingVideoRef}
+                  id="hero-landing-video"
+                  src={HERO_LANDING_VIDEO_SRC}
+                  muted
+                  playsInline
+                  loop
+                  preload="auto"
+                  aria-hidden="true"
+                  className="absolute inset-0 z-[1] h-full w-full object-contain object-center opacity-0 transition-opacity duration-300"
+                />
+              </>
             )}
 
             {/* Scroll-synchronised editorial copy. The overlay stays inside the
