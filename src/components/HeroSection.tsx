@@ -54,6 +54,8 @@ const HERO_TEXT_SCENES: HeroTextScene[] = [
 const clamp01 = (value: number) => Math.min(1, Math.max(0, value));
 const easeOutCubic = (value: number) => 1 - (1 - value) ** 3;
 const easeInCubic = (value: number) => value ** 3;
+const LANDING_COPY =
+  'Clear signals, repeatable methods, and grounded judgment for the tools shaping creative work.';
 
 export const HeroSection: React.FC<HeroSectionProps> = ({ onOpenContact }) => {
   const containerRef = useRef<HTMLDivElement>(null);
@@ -61,6 +63,10 @@ export const HeroSection: React.FC<HeroSectionProps> = ({ onOpenContact }) => {
   const mediaShellRef = useRef<HTMLDivElement>(null);
   const videoRef = useRef<HTMLVideoElement>(null);
   const headingRef = useRef<HTMLHeadingElement>(null);
+  const landingAreaRef = useRef<HTMLDivElement>(null);
+  const landingTextRef = useRef<HTMLDivElement>(null);
+  const landingTitleRef = useRef<HTMLHeadingElement>(null);
+  const landingCopyRef = useRef<HTMLParagraphElement>(null);
   const summaryBlockRef = useRef<HTMLDivElement>(null);
   const roleLabelRef = useRef<HTMLDivElement>(null);
   const studioFeedRef = useRef<HTMLDivElement>(null);
@@ -102,6 +108,7 @@ export const HeroSection: React.FC<HeroSectionProps> = ({ onOpenContact }) => {
       copyElement.style.transform = `translate3d(0, ${copyY}px, 0)`;
       copyElement.textContent = scene.copy.slice(0, copyLength);
     });
+
   }, []);
 
   // Initialize GSAP ScrollTrigger after video metadata or fallback is ready
@@ -117,6 +124,8 @@ export const HeroSection: React.FC<HeroSectionProps> = ({ onOpenContact }) => {
     const container = containerRef.current;
     if (!container) return;
 
+    let landingTimeline: gsap.core.Timeline | undefined;
+    let landingTrigger: ScrollTrigger | undefined;
     const ctx = gsap.context(() => {
       // Keep the hero pinned for the full scroll-driven video sequence.
       const pinDistance = '+=240%';
@@ -140,12 +149,15 @@ export const HeroSection: React.FC<HeroSectionProps> = ({ onOpenContact }) => {
         updateTextOverlays(0);
 
         const videoObj = { currentTime: 0 };
+        // The video reaches its final frame at 90% of the pinned sequence.
+        // The remaining 10% is reserved for the landing copy after the video
+        // has finished moving and is fixed in the white area.
         tl.to(
           videoObj,
           {
             currentTime: video.duration,
             ease: 'none',
-            duration: 1,
+            duration: 0.9,
             onUpdate: () => {
               if (isFinite(videoObj.currentTime)) {
                 video.currentTime = videoObj.currentTime;
@@ -205,11 +217,8 @@ export const HeroSection: React.FC<HeroSectionProps> = ({ onOpenContact }) => {
         );
       }
 
-      // Use the final two seconds of the 20-second source (18s -> 20s) as
-      // the Hero exit. The video travels down into the white transition area
-      // and holds its final position until the pinned sequence releases.
-      // This timeline shares the same ScrollTrigger progress that drives
-      // video.currentTime, so there is still only one animation clock.
+      // The final two video seconds occupy 81% -> 90% of this timeline. The
+      // media reaches the white transition area before landing copy begins.
       tl.to(
         mediaShellRef.current,
         {
@@ -222,12 +231,66 @@ export const HeroSection: React.FC<HeroSectionProps> = ({ onOpenContact }) => {
           },
           scale: 1,
           ease: 'none',
-          duration: 0.1,
+          duration: 0.09,
         },
-        0.9
+        0.81
       );
 
     }, containerRef);
+
+    // Trigger the landing copy from its actual viewport entry rather than
+    // from the Hero pin progress. The timeline is paused until the white gap
+    // is genuinely visible, so the animation cannot be consumed off-screen.
+    const landingArea = landingAreaRef.current;
+    const landingElement = landingTextRef.current;
+    const landingTitle = landingTitleRef.current;
+    const landingCopy = landingCopyRef.current;
+    if (landingArea && landingElement && landingTitle && landingCopy) {
+      landingTimeline = gsap.timeline({
+        paused: true,
+        onReverseComplete: () => {
+          landingCopy.textContent = '';
+        },
+      });
+      const copyState = { progress: 0 };
+      landingCopy.textContent = '';
+      landingTimeline.set(landingElement, { opacity: 1 }, 0);
+      landingTimeline.fromTo(
+        landingTitle,
+        { opacity: 0, x: -28, y: 14 },
+        { opacity: 1, x: 0, y: 0, ease: 'power2.out', duration: 0.32 },
+        0
+      );
+      landingTimeline.fromTo(
+        landingCopy,
+        { opacity: 0, y: 10 },
+        { opacity: 1, y: 0, ease: 'power2.out', duration: 0.28 },
+        0.28
+      );
+      landingTimeline.to(
+        copyState,
+        {
+          progress: 1,
+          ease: 'none',
+          duration: 0.72,
+          onUpdate: () => {
+            landingCopy.textContent = LANDING_COPY.slice(
+              0,
+              Math.round(LANDING_COPY.length * copyState.progress)
+            );
+          },
+        },
+        0.28
+      );
+
+      landingTrigger = ScrollTrigger.create({
+        trigger: landingArea,
+        start: 'top 78%',
+        invalidateOnRefresh: true,
+        onEnter: () => landingTimeline?.play(),
+        onLeaveBack: () => landingTimeline?.reverse(),
+      });
+    }
 
     // Resize event listener to refresh ScrollTrigger
     const handleResize = () => {
@@ -238,6 +301,8 @@ export const HeroSection: React.FC<HeroSectionProps> = ({ onOpenContact }) => {
 
     return () => {
       window.removeEventListener('resize', handleResize);
+      landingTrigger?.kill();
+      landingTimeline?.kill();
       ctx.revert();
       updateTextOverlays(0);
     };
@@ -453,10 +518,38 @@ export const HeroSection: React.FC<HeroSectionProps> = ({ onOpenContact }) => {
       {/* Final-frame landing area between Erick Chen and Tested Interfaces.
           It matches the responsive height of the full-size 16:9 media shell. */}
       <div
-        aria-hidden="true"
+        ref={landingAreaRef}
         className="relative w-full bg-[#FAFAFA] pointer-events-none"
         style={{ height: 'min(56.25vw, 945px, 82vh)' }}
-      />
+      >
+        <div
+          ref={landingTextRef}
+          className="absolute left-6 sm:left-8 md:left-10 top-1/2 -translate-y-1/2 z-20 max-w-[min(32rem,42vw)] text-left"
+          style={{ opacity: isReducedMotion ? 1 : 0 }}
+        >
+          <h2
+            ref={landingTitleRef}
+            className="text-[clamp(1.25rem,3vw,3.25rem)] font-semibold leading-none tracking-[0.08em] text-[#0C0C0C] will-change-transform"
+            style={{
+              opacity: isReducedMotion ? 1 : 0,
+              transform: isReducedMotion ? 'none' : 'translate3d(0, 14px, 0)',
+            }}
+          >
+            PRACTICAL SIGNAL
+          </h2>
+          <p
+            ref={landingCopyRef}
+            aria-label={LANDING_COPY}
+            className="mt-3 text-[clamp(0.65rem,1.05vw,1rem)] font-light leading-snug tracking-[0.02em] text-[#0C0C0C]/75 will-change-transform"
+            style={{
+              opacity: isReducedMotion ? 1 : 0,
+              transform: isReducedMotion ? 'none' : 'translate3d(0, 10px, 0)',
+            }}
+          >
+            {LANDING_COPY}
+          </p>
+        </div>
+      </div>
     </section>
   );
 };
