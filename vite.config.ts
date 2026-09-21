@@ -5,6 +5,8 @@ import {defineConfig} from 'vite';
 
 export default defineConfig(() => {
   return {
+    // '/xianni/' for GitHub Pages sub-path; '/' for local dev.
+    base: process.env.NODE_ENV === 'production' ? '/xianni/' : '/',
     plugins: [react(), tailwindcss()],
     resolve: {
       alias: {

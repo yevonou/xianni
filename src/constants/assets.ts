@@ -1,12 +1,18 @@
 import { ProjectData, ResumeAchievement } from '../types';
 
 /**
+ * Base URL for static assets. Vite exposes this from `base` in vite.config.ts,
+ * so it correctly resolves to '/xianni/' on GitHub Pages and '/' locally.
+ */
+const BASE = import.meta.env.BASE_URL;
+
+/**
  * Primary hero video path.
  * Short-GOP 4.mp4 used for GSAP ScrollTrigger scroll-driven playback.
  */
-export const HERO_VIDEO_SRC = '/4.mp4';
-export const HERO_LANDING_VIDEO_SRC = '/5.mp4';
-export const HERO_POSTER_SRC = '/assets/hero/poster.jpg';
+export const HERO_VIDEO_SRC = `${BASE}4.mp4`;
+export const HERO_LANDING_VIDEO_SRC = `${BASE}5.mp4`;
+export const HERO_POSTER_SRC = `${BASE}assets/hero/poster.jpg`;
 
 /**
  * Four provided source/reference frames and fallback poster images (1680 x 945, 16:9).
@@ -15,26 +21,26 @@ export const HERO_POSTER_FRAMES = [
   {
     id: 'frame-01',
     name: 'Wide Left Angle',
-    path: '/assets/hero/frame-01-wide-left.svg',
-    pngFallback: '/assets/hero/frame-01-wide-left.png',
+    path: `${BASE}assets/hero/frame-01-wide-left.svg`,
+    pngFallback: `${BASE}assets/hero/frame-01-wide-left.png`,
   },
   {
     id: 'frame-02',
     name: 'Close Front Portrait',
-    path: '/assets/hero/frame-02-close-front.svg',
-    pngFallback: '/assets/hero/frame-02-close-front.png',
+    path: `${BASE}assets/hero/frame-02-close-front.svg`,
+    pngFallback: `${BASE}assets/hero/frame-02-close-front.png`,
   },
   {
     id: 'frame-03',
     name: 'Gesture Right Glow',
-    path: '/assets/hero/frame-03-gesture-right.svg',
-    pngFallback: '/assets/hero/frame-03-gesture-right.png',
+    path: `${BASE}assets/hero/frame-03-gesture-right.svg`,
+    pngFallback: `${BASE}assets/hero/frame-03-gesture-right.png`,
   },
   {
     id: 'frame-04',
     name: 'Goggles Touch Detail',
-    path: '/assets/hero/frame-04-goggles-touch.svg',
-    pngFallback: '/assets/hero/frame-04-goggles-touch.png',
+    path: `${BASE}assets/hero/frame-04-goggles-touch.svg`,
+    pngFallback: `${BASE}assets/hero/frame-04-goggles-touch.png`,
   },
 ];
 
