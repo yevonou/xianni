@@ -69,8 +69,6 @@ export const HeroSection: React.FC<HeroSectionProps> = ({ onOpenContact }) => {
   const textSceneRefs = useRef<Array<HTMLDivElement | null>>([]);
   const textTitleRefs = useRef<Array<HTMLHeadingElement | null>>([]);
   const textCopyRefs = useRef<Array<HTMLParagraphElement | null>>([]);
-  const videoTimeTargetRef = useRef(0);
-  const videoTimeFrameRef = useRef<number | null>(null);
 
   const [activeFrameIndex, setActiveFrameIndex] = useState(0);
   const [videoError, setVideoError] = useState(false);
@@ -106,21 +104,6 @@ export const HeroSection: React.FC<HeroSectionProps> = ({ onOpenContact }) => {
     });
   }, []);
 
-  // Coalesce wheel bursts into one seek per paint. This keeps the browser from
-  // queueing several expensive video seeks when a mouse wheel emits 3–5 lines
-  // at once, while the numeric scrub below eases toward the new scroll target.
-  const queueVideoTime = useCallback((video: HTMLVideoElement, currentTime: number) => {
-    videoTimeTargetRef.current = currentTime;
-    if (videoTimeFrameRef.current !== null) return;
-
-    videoTimeFrameRef.current = window.requestAnimationFrame(() => {
-      videoTimeFrameRef.current = null;
-      if (isFinite(videoTimeTargetRef.current)) {
-        video.currentTime = videoTimeTargetRef.current;
-      }
-    });
-  }, []);
-
   // Initialize GSAP ScrollTrigger after video metadata or fallback is ready
   const initScrollTrigger = useCallback(() => {
     // Check prefers-reduced-motion
@@ -138,47 +121,41 @@ export const HeroSection: React.FC<HeroSectionProps> = ({ onOpenContact }) => {
       // Keep the hero pinned for the full scroll-driven video sequence.
       const pinDistance = '+=240%';
 
-      // 1. Video frame-by-frame scrub animation
-      if (video && video.duration > 0) {
-        // Ensure video is paused, muted, and at start frame
-        video.pause();
-        video.currentTime = 0;
-        videoTimeTargetRef.current = 0;
-        updateTextOverlays(0);
-
-        // Virtual object to animate currentTime with GSAP scrub
-        const videoObj = { currentTime: 0 };
-
-        gsap.to(videoObj, {
-          currentTime: video.duration,
-          ease: 'none',
-          scrollTrigger: {
-            trigger: container,
-            start: 'top top',
-            end: pinDistance,
-            scrub: 1,
-            onUpdate: () => {
-              if (video && isFinite(videoObj.currentTime)) {
-                queueVideoTime(video, videoObj.currentTime);
-                updateTextOverlays(videoObj.currentTime);
-              }
-            },
-          },
-        });
-      }
-
-      // 2. Coordinated timeline for hero layout, parallax, and pinning
+      // One short-scrub timeline drives video, copy, parallax, and pinning.
       const tl = gsap.timeline({
         scrollTrigger: {
           trigger: container,
           start: 'top top',
           end: pinDistance,
           pin: true,
-          scrub: 1,
+          scrub: 0.25,
           anticipatePin: 1,
           invalidateOnRefresh: true,
         },
       });
+
+      if (video && video.duration > 0) {
+        video.pause();
+        video.currentTime = 0;
+        updateTextOverlays(0);
+
+        const videoObj = { currentTime: 0 };
+        tl.to(
+          videoObj,
+          {
+            currentTime: video.duration,
+            ease: 'none',
+            duration: 1,
+            onUpdate: () => {
+              if (isFinite(videoObj.currentTime)) {
+                video.currentTime = videoObj.currentTime;
+                updateTextOverlays(videoObj.currentTime);
+              }
+            },
+          },
+          0
+        );
+      }
 
       // Video scale subtle zoom-out parallax: from 1.04 down to 1.0
       tl.fromTo(
@@ -236,11 +213,14 @@ export const HeroSection: React.FC<HeroSectionProps> = ({ onOpenContact }) => {
       tl.to(
         mediaShellRef.current,
         {
-          // Center the reduced video inside the dedicated white exit area.
-          // The 110px offset is half of the 220px section extension below
-          // the viewport-sized Hero content.
-          y: () => window.innerHeight * 0.5 + 110,
-          scale: 0.36,
+          // Place the full-size 16:9 shell directly below the viewport-sized
+          // Hero content, centered inside a white area of the same height.
+          y: () => {
+            const heroHeight = heroContentRef.current?.offsetHeight ?? window.innerHeight;
+            const mediaHeight = mediaShellRef.current?.offsetHeight ?? 0;
+            return (heroHeight + mediaHeight) / 2;
+          },
+          scale: 1,
           ease: 'none',
           duration: 0.1,
         },
@@ -258,14 +238,10 @@ export const HeroSection: React.FC<HeroSectionProps> = ({ onOpenContact }) => {
 
     return () => {
       window.removeEventListener('resize', handleResize);
-      if (videoTimeFrameRef.current !== null) {
-        window.cancelAnimationFrame(videoTimeFrameRef.current);
-        videoTimeFrameRef.current = null;
-      }
       ctx.revert();
       updateTextOverlays(0);
     };
-  }, [queueVideoTime, updateTextOverlays]);
+  }, [updateTextOverlays]);
 
   useEffect(() => {
     const prefersReducedMotion = window.matchMedia('(prefers-reduced-motion: reduce)').matches;
@@ -306,11 +282,11 @@ export const HeroSection: React.FC<HeroSectionProps> = ({ onOpenContact }) => {
     <section
       ref={containerRef}
       id="hero-section"
-      className="relative w-full h-[calc(100vh+220px)] min-h-[840px] sm:min-h-[860px] md:min-h-[940px] bg-[#FFFFFF] overflow-visible select-none"
+      className="relative w-full bg-[#FAFAFA] overflow-visible select-none"
     >
       <div
         ref={heroContentRef}
-        className="relative w-full h-screen flex flex-col justify-between overflow-visible bg-[#FFFFFF]"
+        className="relative w-full h-screen min-h-[620px] sm:min-h-[640px] md:min-h-[720px] flex flex-col justify-between overflow-visible bg-[#FAFAFA]"
       >
         {/* Top Navbar */}
         <Navbar onOpenContact={onOpenContact} id="hero-navbar" />
@@ -473,6 +449,14 @@ export const HeroSection: React.FC<HeroSectionProps> = ({ onOpenContact }) => {
           </div>
         </div>
       </div>
+
+      {/* Final-frame landing area between Erick Chen and Tested Interfaces.
+          It matches the responsive height of the full-size 16:9 media shell. */}
+      <div
+        aria-hidden="true"
+        className="relative w-full bg-[#FAFAFA] pointer-events-none"
+        style={{ height: 'min(56.25vw, 945px, 82vh)' }}
+      />
     </section>
   );
 };

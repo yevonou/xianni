@@ -13,7 +13,7 @@ export default function App() {
   const [isContactOpen, setIsContactOpen] = useState<boolean>(false);
 
   return (
-    <main className="w-full min-h-screen bg-[#FFFFFF] text-[#0C0C0C] overflow-x-clip selection:bg-[#7621B0] selection:text-white">
+    <main className="w-full min-h-screen bg-[#FAFAFA] text-[#0C0C0C] overflow-x-clip selection:bg-[#7621B0] selection:text-white">
       {/* 1. HeroSection: GSAP Video Hero with 16:9 media shell and studio backdrop */}
       <HeroSection onOpenContact={() => setIsContactOpen(true)} />
 

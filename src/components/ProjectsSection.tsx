@@ -11,7 +11,7 @@ export const ProjectsSection: React.FC<ProjectsSectionProps> = ({ onViewCase }) 
   return (
     <section
       id="projects"
-      className="relative w-full bg-[#FFFFFF] px-5 sm:px-8 md:px-10 py-20 sm:py-24 md:py-32"
+      className="relative w-full bg-[#FAFAFA] px-5 sm:px-8 md:px-10 py-20 sm:py-24 md:py-32"
     >
       <div className="max-w-7xl mx-auto">
         {/* Section Heading */}

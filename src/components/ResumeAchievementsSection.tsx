@@ -7,7 +7,7 @@ export const ResumeAchievementsSection: React.FC = () => {
   return (
     <section
       id="resume"
-      className="relative w-full min-h-screen bg-[#FFFFFF] text-[#0C0C0C] px-5 sm:px-8 md:px-10 py-20 sm:py-24 md:py-32"
+      className="relative w-full min-h-screen bg-[#FAFAFA] text-[#0C0C0C] px-5 sm:px-8 md:px-10 py-20 sm:py-24 md:py-32"
     >
       <div className="max-w-7xl mx-auto">
         {/* Section Heading */}

@@ -13,7 +13,7 @@ export const Footer: React.FC<FooterProps> = ({ onOpenContact }) => {
   return (
     <footer
       id="site-footer"
-      className="relative w-full bg-[#FFFFFF] border-t border-[#0C0C0C]/15 px-6 md:px-10 py-12 sm:py-16 text-[#0C0C0C]"
+      className="relative w-full bg-[#FAFAFA] border-t border-[#0C0C0C]/15 px-6 md:px-10 py-12 sm:py-16 text-[#0C0C0C]"
     >
       <div className="max-w-7xl mx-auto flex flex-col md:flex-row items-start md:items-center justify-between gap-8">
         {/* Left: Brand Identity & Telemetry */}

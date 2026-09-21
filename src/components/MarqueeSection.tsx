@@ -44,7 +44,7 @@ export const MarqueeSection: React.FC = () => {
     <section
       ref={sectionRef}
       id="marquee"
-      className="relative w-full bg-[#FFFFFF] pt-12 sm:pt-16 md:pt-20 pb-10 overflow-hidden"
+      className="relative w-full bg-[#FAFAFA] pt-12 sm:pt-16 md:pt-20 pb-10 overflow-hidden"
     >
       {/* Heading above rows */}
       <div className="px-5 sm:px-8 md:px-10 mb-10">
